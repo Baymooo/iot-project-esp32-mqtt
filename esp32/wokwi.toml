@@ -1,0 +1,6 @@
+[wokwi]
+version = 1
+board = "esp32-devkit-v1"
+project = "esp32_mqtt.ino"
+# BARIS INI YANG HILANG:
+firmware = "build/esp32_mqtt.ino.bin"

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>IoT Sensor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f6f8fa;
+      margin: 0;
+      padding: 0;
+      color: #222;
+    }
+
+    header {
+      background: linear-gradient(135deg, #5985b5, #4dadc8);
+      color: white;
+      padding: 1.2rem 2rem;
+      text-align: center;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+    }
+
+    header img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: white;
+      padding: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 25px 30px;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      flex: 1;
+      min-width: 180px;
+      background: #f0f4ff;
+      border-radius: 10px;
+      margin: 8px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+      transform: scale(1.03);
+    }
+
+    .card h3 {
+      margin: 0;
+      color: #007bff;
+      font-size: 1.1rem;
+    }
+
+    .card p {
+      margin: 5px 0 0;
+      font-size: 1.3rem;
+      font-weight: bold;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 400px !important;
+      margin-top: 20px;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      padding: 15px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://cdn-icons-png.flaticon.com/512/9521/9521560.png" alt="IoT Logo">
+    <h1>IoT Sensor Dashboard</h1>
+  </header>
+
+  <div class="container">
+    <h2>Ringkasan Data</h2>
+    <div id="summary" class="stats">
+      <div class="card"><h3>Suhu Maks</h3><p id="suhu-max">-</p></div>
+      <div class="card"><h3>Suhu Min</h3><p id="suhu-min">-</p></div>
+      <div class="card"><h3>Suhu Rata-rata</h3><p id="suhu-avg">-</p></div>
+    </div>
+
+    <h2>Grafik Sensor</h2>
+    <canvas id="sensorChart"></canvas>
+
+    <h2>Data Mentah</h2>
+    <pre id="raw" style="background:#f6f6f6; padding:10px; border-radius:8px; max-height:250px; overflow:auto;"></pre>
+  </div>
+
+  <footer>
+    IoT made by Achmad Bimo Rahadian
+  </footer>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/sensor');
+        if (!res.ok) throw new Error("Gagal ambil data dari API");
+        const data = await res.json();
+
+        document.getElementById('raw').textContent = JSON.stringify(data, null, 2);
+
+        document.getElementById('suhu-max').textContent = data.suhumax + " °C";
+        document.getElementById('suhu-min').textContent = data.suhumin + " °C";
+        document.getElementById('suhu-avg').textContent = data.suhurata + " °C";
+
+        // Ambil data untuk grafik
+        const labels = data.nilai_suhu_max_humid_max.map(d => d.timestamp);
+        const suhu = data.nilai_suhu_max_humid_max.map(d => d.suhun);
+        const humid = data.nilai_suhu_max_humid_max.map(d => d.humid);
+        const lux = data.nilai_suhu_max_humid_max.map(d => d.kecerahan);
+
+        drawChart(labels, suhu, humid, lux);
+      } catch (e) {
+        document.getElementById('raw').textContent = "Error: " + e.message;
+      }
+    }
+
+    function drawChart(labels, suhu, humid, lux) {
+      const ctx = document.getElementById('sensorChart').getContext('2d');
+      if (window.myChart) window.myChart.destroy();
+
+      window.myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Suhu (°C)',
+              data: suhu,
+              borderColor: '#ff6384',
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: 'Kelembapan (%)',
+              data: humid,
+              borderColor: '#36a2eb',
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: 'Lux (Kecerahan)',
+              data: lux,
+              borderColor: '#ffcd56',
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Waktu' } },
+            y: { title: { display: true, text: 'Nilai Sensor' } }
+          },
+          plugins: {
+            legend: { position: 'top' }
+          }
+        }
+      });
+    }
+
+    // Auto refresh tiap 5 detik
+    loadData();
+    setInterval(loadData, 5000);
+  </script>
+</body>
+</html>
